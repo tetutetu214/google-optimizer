@@ -30,6 +30,10 @@ st.set_page_config(
 # 初期化
 if 'is_optimizing' not in st.session_state:
     st.session_state.is_optimizing = False
+if 'optimization_result' not in st.session_state:
+    st.session_state.optimization_result = None
+if 'guidelines_data' not in st.session_state:
+    st.session_state.guidelines_data = []
 
 # タイトル
 st.title("Prompt Optimizer API プロンプト最適化提案ツール")
@@ -107,6 +111,8 @@ if optimize_button and prompt_text:
     try:
         # 実行開始でボタンを無効化
         st.session_state.is_optimizing = True
+        st.session_state.optimization_result = None
+        st.session_state.guidelines_data = []
 
         # オプティマイザー初期化
         optimizer = PromptOptimizer(project_id, location)
@@ -127,55 +133,62 @@ if optimize_button and prompt_text:
                 time.sleep(0.5)
 
             # 最適化されたプロンプトの表示
-            # Vertex AIが生成した改善版プロンプトを表示            
+            # Vertex AIが生成した改善版プロンプトを表示
+            # elif data["type"] == "suggested_prompt":
+            #     with suggested_placeholder.container():
+            #         st.subheader("最適化されたプロンプト")
+            #         st.code(data["content"], language="text")
+                    # # ダウンロードボタン
+                    # st.download_button(
+                    #     label="最適化プロンプトをダウンロード",
+                    #     data=data["content"],
+                    #     file_name="optimized_prompt.txt",
+                    #     mime="text/plain"
+                    # )
+
             elif data["type"] == "suggested_prompt":
-                with suggested_placeholder.container():
-                    st.subheader("最適化されたプロンプト")
-                    st.code(data["content"], language="text")
-                    
-                    # ダウンロードボタン
-                    st.download_button(
-                        label="📥 最適化プロンプトをダウンロード",
-                        data=data["content"],
-                        file_name="optimized_prompt.txt",
-                        mime="text/plain"
-                    )
+                st.session_state.optimization_result = data["content"]
+                
 
             # 改善提案の表示
             # 個別の改善ポイントを段階的に表示            
-            elif data["type"] == "guideline":
-                # データを追加
-                guidelines_data.append(data)
+            # elif data["type"] == "guideline":
+            #     # データを追加
+            #     guidelines_data.append(data)
                 
-                # 改善提案セクションを表示
-                with guidelines_placeholder.container():
-                    st.subheader("改善提案")
+            #     # 改善提案セクションを表示
+            #     with guidelines_placeholder.container():
+            #         st.subheader("改善提案")
 
-                    # 蓄積された全ての改善提案を順次表示
-                    # 新しい提案が来るたびに全体を再描画                    
-                    for guideline in guidelines_data:
-                        with st.expander(
-                            f"改善点 {guideline['index']}: {guideline['name']}",
-                            expanded=True
-                        ):
-                            # 改善理由を表示
-                            st.markdown(f"**理由:** {guideline['improvement']}")
+            #         # 蓄積された全ての改善提案を順次表示
+            #         # 新しい提案が来るたびに全体を再描画                    
+            #         for guideline in guidelines_data:
+            #             with st.expander(
+            #                 f"改善点 {guideline['index']}: {guideline['name']}",
+            #                 expanded=True
+            #             ):
+            #                 # 改善理由を表示
+            #                 st.markdown(f"**理由:** {guideline['improvement']}")
                             
-                            # 変更前後を2カラムで並べて表示
-                            col_before, col_after = st.columns(2)
+            #                 # 変更前後を2カラムで並べて表示
+            #                 col_before, col_after = st.columns(2)
                             
-                            # 左カラム: 変更前
-                            with col_before:
-                                st.markdown("**変更前:**")
-                                st.code(guideline['before'], language="text")
+            #                 # 左カラム: 変更前
+            #                 with col_before:
+            #                     st.markdown("**変更前:**")
+            #                     st.code(guideline['before'], language="text")
                             
-                            # 右カラム: 変更後
-                            with col_after:
-                                st.markdown("**変更後:**")
-                                st.code(guideline['after'], language="text")
+            #                 # 右カラム: 変更後
+            #                 with col_after:
+            #                     st.markdown("**変更後:**")
+            #                     st.code(guideline['after'], language="text")
+
+                # # ストリーミング効果を演出
+                # time.sleep(0.3)
+
+            elif data["type"] == "guideline":
+                st.session_state.guidelines_data.append(data)
                 
-                # ストリーミング効果を演出
-                time.sleep(0.3)
             
             # エラー発生時の表示
             elif data["type"] == "error":
@@ -193,3 +206,43 @@ if optimize_button and prompt_text:
     finally:
         # 実行終了: ボタンを再有効化
         st.session_state.is_optimizing = False
+
+# Vertex AIが生成した改善版プロンプトを表示
+if st.session_state.optimization_result:
+    with suggested_placeholder.container():
+        st.subheader("最適化されたプロンプト")
+        st.code(st.session_state.optimization_result, language="text")
+
+        # ダウンロードボタン
+        st.download_button(
+            label="📥 最適化プロンプトをダウンロード",
+            data=st.session_state.optimization_result,
+            file_name="optimized_prompt.txt",
+            mime="text/plain"
+        )
+
+# 改善提案セクションを表示
+if st.session_state.guidelines_data:
+
+    # 改善提案セクションを表示
+    with guidelines_placeholder.container():
+        st.subheader("改善提案")
+
+        # 蓄積された全ての改善提案を順次表示
+        # 新しい提案が来るたびに全体を再描画
+        for guideline in st.session_state.guidelines_data:
+            with st.expander(
+                f"改善点 {guideline['index']}: {guideline['name']}",
+                expanded=True
+            ):
+                # 改善理由を表示
+                st.markdown(f"**理由:** {guideline['improvement']}")
+                
+                # 変更前後を2カラムで並べて表示
+                col_before, col_after = st.columns(2)
+                with col_before:
+                    st.markdown("**変更前:**")
+                    st.code(guideline['before'], language="text")
+                with col_after:
+                    st.markdown("**変更後:**")
+                    st.code(guideline['after'], language="text")
